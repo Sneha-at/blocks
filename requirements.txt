@@ -1,3 +1,3 @@
 -e git+https://github.com/Sneha-at/blocks.git@master#egg=blocks
--e git+https://github.com/Sneha-at/python-augeas.git@v0.4.2a1#egg=python-augeas
+-e git+https://github.com/g2p/python-augeas.git@v0.4.2a1#egg=python-augeas
 
