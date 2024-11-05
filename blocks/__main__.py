@@ -206,7 +206,6 @@ class BlockDevice:
 
     def superblock_at(self, offset):
         try:
-            logging.info("/usr/bin/blkid -p -o value -s TYPE -O")
             return subprocess.check_output(
                 '/usr/bin/blkid -p -o value -s TYPE -O'.split()
                 + ['%d' % offset, '--', self.devpath], shell=True
