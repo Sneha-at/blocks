@@ -207,7 +207,7 @@ class BlockDevice:
     def superblock_at(self, offset):
         try:
             return subprocess.check_output(
-                '/usr/bin/blkid -p -o value -s TYPE -O'.split()
+                '/usr/sbin/blkid -p -o value -s TYPE -O'.split()
                 + ['%d' % offset, '--', self.devpath], shell=True
             ).rstrip().decode('ascii')
         except subprocess.CalledProcessError as err:
