@@ -124,9 +124,9 @@ class Requirement:
                 .format(self.cmd, self.pkg), MissingRequirement(self))
 
 
-class LVMReq(Requirement):
-    cmd = 'lvm'
-    pkg = 'lvm2'
+# class LVMReq(Requirement):
+#     cmd = 'lvm'
+#     pkg = 'lvm2'
 
 
 class BCacheReq(Requirement):
@@ -1815,7 +1815,7 @@ def cmd_to_lvm(args):
             'Already a physical volume', file=sys.stderr)
         return 1
 
-    LVMReq.require(progress)
+    # LVMReq.require(progress)
     print('After LVMReq 1')
     if args.join is not None:
         vg_info = subprocess.check_output(
