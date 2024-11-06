@@ -173,7 +173,7 @@ class BlockDevice:
     @classmethod
     def by_uuid(cls, uuid):
         return cls(devpath=subprocess.check_output(
-            ['sudo blkid', '-U', uuid]).rstrip())
+            ['sudo','blkid', '-U', uuid]).rstrip())
 
     def open_excl(self):
         # O_EXCL on a block device takes the device lock,
@@ -272,7 +272,7 @@ class BlockDevice:
             return False
         try:
             pe_size = int(subprocess.check_output(
-                'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+                'sudo lvm lvs --noheadings --rows --units=b --nosuffix '
                 '-o vg_extent_size --'.split()
                 + [self.devpath], universal_newlines=True))
         except subprocess.CalledProcessError:
@@ -547,6 +547,7 @@ class Filesystem(BlockData):
 
 
     def _mount_and_resize(self, pos):
+        print('Got superblock as '+ str(pos))
         if self.resize_needs_mpoint and not self.is_mounted():
             with self.temp_mount():
                 self._resize(pos)
@@ -667,7 +668,7 @@ class LUKS(SimpleContainer):
     def activate(self, dmname):
         # cs.activate
         subprocess.check_call(
-            ['cryptsetup', 'luksOpen', '--', self.device.devpath, dmname])
+            ['sudo','cryptsetup', 'luksOpen', '--', self.device.devpath, dmname])
 
     def deactivate(self):
         while True:
@@ -675,7 +676,7 @@ class LUKS(SimpleContainer):
             if dev is None:
                 break
             subprocess.check_call(
-                ['cryptsetup', 'remove', '--', dev.devpath])
+                ['sudo','cryptsetup', 'remove', '--', dev.devpath])
         type(self).cleartext_device._reset(self)
 
     def snoop_activated(self):
@@ -708,7 +709,7 @@ class LUKS(SimpleContainer):
         self.offset = None
 
         proc = subprocess.Popen(
-            ['cryptsetup', 'luksDump', '--', self.device.devpath],
+            ['sudo','cryptsetup', 'luksDump', '--', self.device.devpath],
             stdout=subprocess.PIPE)
         for line in proc.stdout:
             if line.startswith(b'Payload offset:'):
@@ -784,7 +785,7 @@ class LUKS(SimpleContainer):
         # and updating the dm table is only useful if
         # we want to do some fsck before deactivating
         subprocess.check_call(
-            ['cryptsetup', 'resize', '--size=%d' % sectors,
+            ['sudo','cryptsetup', 'resize', '--size=%d' % sectors,
              '--', self.cleartext_device.devpath])
         if self.snoop_activated():
             self.cleartext_device.reset_size()
@@ -802,7 +803,7 @@ class XFS(Filesystem):
         self.block_count = None
 
         proc = subprocess.Popen(
-            ['xfs_db', '-c', 'sb 0', '-c', 'p dblocks blocksize',
+            ['sudo','xfs_db', '-c', 'sb 0', '-c', 'p dblocks blocksize',
              '--', self.device.devpath], stdout=subprocess.PIPE)
         for line in proc.stdout:
             if line.startswith(b'dblocks ='):
@@ -833,7 +834,7 @@ class NilFS(Filesystem):
         self.size_bytes = None
 
         proc = subprocess.Popen(
-            'nilfs-tune -l --'.split() + [self.device.devpath],
+            'sudo','nilfs-tune -l --'.split() + [self.device.devpath],
             stdout=subprocess.PIPE)
 
         for line in proc.stdout:
@@ -903,7 +904,7 @@ class ReiserFS(Filesystem):
         self.block_count = None
 
         proc = subprocess.Popen(
-            'reiserfstune --'.split() + [self.device.devpath],
+            'sudo','reiserfstune --'.split() + [self.device.devpath],
             stdout=subprocess.PIPE)
 
         for line in proc.stdout:
@@ -919,7 +920,7 @@ class ReiserFS(Filesystem):
     def _resize(self, target_size):
         assert target_size % self.block_size == 0
         subprocess.check_call(
-            ['resize_reiserfs', '-q', '-s', '%d' % target_size,
+            ['sudo','resize_reiserfs', '-q', '-s', '%d' % target_size,
              '--', self.device.devpath])
 
 
@@ -934,7 +935,7 @@ class ExtFS(Filesystem):
         self.check_tm = None
 
         proc = subprocess.Popen(
-            'tune2fs -l --'.split() + [self.device.devpath],
+            'sudo tune2fs -l --'.split() + [self.device.devpath],
             stdout=subprocess.PIPE)
 
         for line in proc.stdout:
@@ -972,12 +973,12 @@ class ExtFS(Filesystem):
             # XXX Without either of -n -p -y, e2fsck will require a
             # terminal on stdin
             subprocess.check_call(
-                'e2fsck -f --'.split() + [self.device.devpath])
+                'sudo e2fsck -f --'.split() + [self.device.devpath])
             # Another option:
             #quiet_call('e2fsck -fp --'.split() + [self.device.devpath])
             self.check_tm = self.mount_tm
         quiet_call(
-            'resize2fs --'.split() + [self.device.devpath, '%d' % block_count])
+            'sudo resize2fs --'.split() + [self.device.devpath, '%d' % block_count])
 
 
 class Swap(Filesystem):
@@ -1243,7 +1244,7 @@ def synth_device(writable_hdr_size, rz_size, writable_end_size=0):
         imgf.truncate(writable_hdr_size + writable_end_size)
 
         lo_dev = subprocess.check_output(
-            'losetup -f --show --'.split() + [imgf.name]
+            'sudo losetup -f --show --'.split() + [imgf.name]
         ).rstrip().decode('ascii')
         assert lo_dev.startswith('/'), lo_dv
         st.callback(
@@ -1413,7 +1414,7 @@ def rotate_lv(*, device, size, debug, forward):
             self.incr(key, by=-1)
 
     lv_info = subprocess.check_output(
-        'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+        'sudo lvm lvs --noheadings --rows --units=b --nosuffix '
         '-o vg_name,vg_uuid,lv_name,lv_uuid,lv_attr --'.split()
         + [device.devpath], universal_newlines=True).splitlines()
     vgname, vg_uuid, lvname, lv_uuid, lv_attr = (fi.lstrip() for fi in lv_info)
@@ -1421,13 +1422,13 @@ def rotate_lv(*, device, size, debug, forward):
 
     # Make sure the volume isn't in use by unmapping it
     quiet_call(
-        ['sudo /usr/sbin/lvm', 'lvchange', '-an', '--', '{}/{}'.format(vgname, lvname)])
+        ['sudo lvm', 'lvchange', '-an', '--', '{}/{}'.format(vgname, lvname)])
 
     with tempfile.TemporaryDirectory(suffix='.blocks') as tdname:
         vgcfgname = tdname + '/vg.cfg'
         print('Loading LVM metadata... ', end='', flush=True)
         quiet_call(
-            ['sudo /usr/sbin/lvm', 'vgcfgbackup', '--file', vgcfgname, '--', vgname])
+            ['sudo lvm', 'vgcfgbackup', '--file', vgcfgname, '--', vgname])
         aug = Augeas(
             loadpath=pkg_resources.resource_filename('blocks', 'augeas'),
             root='/dev/null',
@@ -1477,13 +1478,13 @@ def rotate_lv(*, device, size, debug, forward):
                 'Rotating the last extent to be the first... ',
                 end='', flush=True)
         quiet_call(
-            ['sudo /usr/sbin/lvm', 'vgcfgrestore', '--file', vgcfgname + '.new', '--', vgname])
+            ['sudo lvm', 'vgcfgrestore', '--file', vgcfgname + '.new', '--', vgname])
         # Make sure lvm updates the mapping, this is pretty critical
         quiet_call(
-            ['sudo /usr/sbin/lvm', 'lvchange', '--refresh', '--', '{}/{}'.format(vgname, lvname)])
+            ['sudo lvm', 'lvchange', '--refresh', '--', '{}/{}'.format(vgname, lvname)])
         if active:
             quiet_call(
-                ['sudo /usr/sbin/lvm', 'lvchange', '-ay', '--', '{}/{}'.format(vgname, lvname)])
+                ['sudo lvm', 'lvchange', '-ay', '--', '{}/{}'.format(vgname, lvname)])
         print('ok')
 
 
@@ -1502,7 +1503,7 @@ def make_bcache_sb(bsb_size, data_size, join):
 
 def lv_to_bcache(device, debug, progress, join):
     pe_size = int(subprocess.check_output(
-        'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+        'sudo lvm lvs --noheadings --rows --units=b --nosuffix '
         '-o vg_extent_size --'.split()
         + [device.devpath], universal_newlines=True))
 
@@ -1725,7 +1726,7 @@ def cmd_rotate(args):
     progress = CLIProgressHandler()
 
     pe_size = int(subprocess.check_output(
-        'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+        'sudo lvm lvs --noheadings --rows --units=b --nosuffix '
         '-o vg_extent_size --'.split()
         + [device.devpath], universal_newlines=True))
 
@@ -1796,9 +1797,9 @@ def cmd_maintboot_impl(args):
     assert kargs.command == 'to-bcache'
 
     # wait for devices to come up (30s max)
-    subprocess.check_call(['udevadm', 'settle', '--timeout=30'])
+    subprocess.check_call(['sudo','udevadm', 'settle', '--timeout=30'])
     # activate lvm volumes
-    subprocess.check_call(['sudo /usr/sbin/lvm', 'vgchange', '-ay'])
+    subprocess.check_call(['sudo','lvm', 'vgchange', '-ay'])
 
     kargs.device = BlockDevice.by_uuid(kargs.device).devpath
     kargs.maintboot = False
@@ -1819,7 +1820,7 @@ def cmd_to_lvm(args):
     print('After LVMReq 1')
     if args.join is not None:
         vg_info = subprocess.check_output(
-            'sudo /usr/sbin/lvm vgs --noheadings --rows --units=b --nosuffix '
+            'sudo lvm vgs --noheadings --rows --units=b --nosuffix '
             '-o vg_name,vg_uuid,vg_extent_size --'.split()
             + [args.join], universal_newlines=True).splitlines()
         join_name, join_uuid, pe_size = (fi.lstrip() for fi in vg_info)
@@ -1978,11 +1979,11 @@ def cmd_to_lvm(args):
                    .format(synth_re=re.escape(synth_pv.devpath)))
 
         quiet_call(
-            ['sudo /usr/sbin/lvm', 'pvcreate', lvm_cfg, '--restorefile', cfgf.name,
+            ['sudo','lvm', 'pvcreate', lvm_cfg, '--restorefile', cfgf.name,
              '--uuid', str(pv_uuid), '--zero', 'y', '--',
              synth_pv.devpath])
         quiet_call(
-            ['sudo /usr/sbin/lvm', 'vgcfgrestore', lvm_cfg, '--file', cfgf.name, '--', vgname])
+            ['sudo','lvm', 'vgcfgrestore', lvm_cfg, '--file', cfgf.name, '--', vgname])
     print('ok')  # after 'Preparing LVM metadata'
 
     # Recovery: copy back the PE we had moved to the end of the device.
@@ -2003,7 +2004,7 @@ def cmd_to_lvm(args):
     print('LVM conversion successful!')
     if args.join is not None:
         quiet_call(
-            ['sudo /usr/sbin/lvm', 'vgmerge', '--', join_name, vgname])
+            ['sudo','lvm', 'vgmerge', '--', join_name, vgname])
         vgname = join_name
     if False:
         print('Enable the volume group with\n'
