@@ -173,7 +173,7 @@ class BlockDevice:
     @classmethod
     def by_uuid(cls, uuid):
         return cls(devpath=subprocess.check_output(
-            ['blkid', '-U', uuid], shell=True).rstrip())
+            ['sudo blkid', '-U', uuid], shell=True).rstrip())
 
     def open_excl(self):
         # O_EXCL on a block device takes the device lock,
@@ -195,7 +195,7 @@ class BlockDevice:
         # TODO: also detect an MBR other than protective,
         # and refuse to edit that.
         rv = subprocess.check_output(
-            '/usr/sbin/blkid -p -o value -s PTTYPE --'.split() + [self.devpath], shell=True
+            'sudo blkid -p -o value -s PTTYPE --'.split() + [self.devpath], shell=True
         ).rstrip().decode('ascii')
         if rv:
             return rv
@@ -209,14 +209,14 @@ class BlockDevice:
     def superblock_at(self, offset):
         try:
             result = subprocess.check_output(
-                'sudo /usr/sbin/blkid -p -o value -s TYPE -O'.split()
+                'sudo blkid -p -o value -s TYPE -O'.split()
                 + ['%d' % offset, '--', self.devpath]
             )
             print('Checking superblock here' +  result.decode('ascii') + 'updated log but got nothing')
             print('Next step 2 '+ result.rstrip().decode('ascii') + ' ...end')
 
             return subprocess.check_output(
-                'sudo /usr/sbin/blkid -p -o value -s TYPE -O'.split()
+                'sudo blkid -p -o value -s TYPE -O'.split()
                 + ['%d' % offset, '--', self.devpath]
             ).rstrip().decode('ascii')
         except subprocess.CalledProcessError as err:
@@ -576,13 +576,13 @@ class Filesystem(BlockData):
     @memoized_property
     def fslabel(self):
         return subprocess.check_output(
-            'blkid -o value -s LABEL --'.split() + [self.device.devpath], shell=True
+            'sudo blkid -o value -s LABEL --'.split() + [self.device.devpath], shell=True
         ).rstrip().decode('ascii')
 
     @memoized_property
     def fsuuid(self):
         return subprocess.check_output(
-            'blkid -o value -s UUID --'.split() + [self.device.devpath], shell=True
+            'sudo blkid -o value -s UUID --'.split() + [self.device.devpath], shell=True
         ).rstrip().decode('ascii')
 
 
