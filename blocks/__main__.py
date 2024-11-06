@@ -1125,17 +1125,17 @@ def get_block_stack(device, progress):
             stack.append(wrapper)
             device = wrapper.cleartext_device
             continue
-        elif device.has_bcache_superblock:
-            wrapper = BCacheBacking(device)
-            wrapper.read_superblock()
-            if not wrapper.is_backing:
-                # We only want backing, not all bcache superblocks
-                progress.bail(
-                    'BCache device isn\'t a backing device',
-                    UnsupportedSuperblock(device=device))
-            stack.append(wrapper)
-            device = wrapper.cached_device
-            continue
+        # elif device.has_bcache_superblock:
+        #     wrapper = BCacheBacking(device)
+        #     wrapper.read_superblock()
+        #     if not wrapper.is_backing:
+        #         # We only want backing, not all bcache superblocks
+        #         progress.bail(
+        #             'BCache device isn\'t a backing device',
+        #             UnsupportedSuperblock(device=device))
+        #     stack.append(wrapper)
+        #     device = wrapper.cached_device
+        #     continue
 
         if device.superblock_type in {'ext2', 'ext3', 'ext4'}:
             stack.append(ExtFS(device))
