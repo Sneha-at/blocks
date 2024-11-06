@@ -238,7 +238,7 @@ class BlockDevice:
     @memoized_property
     def size(self):
         rv = int(subprocess.check_output(
-            'blockdev --getsize64'.split() + [self.devpath]))
+            'sudo blockdev --getsize64'.split() + [self.devpath]))
         assert rv % 512 == 0
         return rv
 
@@ -272,7 +272,7 @@ class BlockDevice:
             return False
         try:
             pe_size = int(subprocess.check_output(
-                '/usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+                'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
                 '-o vg_extent_size --'.split()
                 + [self.devpath], universal_newlines=True))
         except subprocess.CalledProcessError:
@@ -333,7 +333,7 @@ class BlockDevice:
                 # Alloc policy / dest PVs might be useful here,
                 # but difficult to expose cleanly.
                 # Just don't use --resize-device and do it manually.
-                cmd = ['/usr/sbin/lvm', 'lvextend']
+                cmd = ['sudo /usr/sbin/lvm', 'lvextend']
             quiet_call(cmd + ['--size=%db' % newsize, '--', self.devpath])
         else:
             raise NotImplementedError('Only partitions and LVs can be resized')
@@ -1413,7 +1413,7 @@ def rotate_lv(*, device, size, debug, forward):
             self.incr(key, by=-1)
 
     lv_info = subprocess.check_output(
-        '/usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+        'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
         '-o vg_name,vg_uuid,lv_name,lv_uuid,lv_attr --'.split()
         + [device.devpath], universal_newlines=True).splitlines()
     vgname, vg_uuid, lvname, lv_uuid, lv_attr = (fi.lstrip() for fi in lv_info)
@@ -1421,13 +1421,13 @@ def rotate_lv(*, device, size, debug, forward):
 
     # Make sure the volume isn't in use by unmapping it
     quiet_call(
-        ['/usr/sbin/lvm', 'lvchange', '-an', '--', '{}/{}'.format(vgname, lvname)])
+        ['sudo /usr/sbin/lvm', 'lvchange', '-an', '--', '{}/{}'.format(vgname, lvname)])
 
     with tempfile.TemporaryDirectory(suffix='.blocks') as tdname:
         vgcfgname = tdname + '/vg.cfg'
         print('Loading LVM metadata... ', end='', flush=True)
         quiet_call(
-            ['/usr/sbin/lvm', 'vgcfgbackup', '--file', vgcfgname, '--', vgname])
+            ['sudo /usr/sbin/lvm', 'vgcfgbackup', '--file', vgcfgname, '--', vgname])
         aug = Augeas(
             loadpath=pkg_resources.resource_filename('blocks', 'augeas'),
             root='/dev/null',
@@ -1477,13 +1477,13 @@ def rotate_lv(*, device, size, debug, forward):
                 'Rotating the last extent to be the first... ',
                 end='', flush=True)
         quiet_call(
-            ['/usr/sbin/lvm', 'vgcfgrestore', '--file', vgcfgname + '.new', '--', vgname])
-        # Make sure /usr/sbin/lvm updates the mapping, this is pretty critical
+            ['sudo /usr/sbin/lvm', 'vgcfgrestore', '--file', vgcfgname + '.new', '--', vgname])
+        # Make sure lvm updates the mapping, this is pretty critical
         quiet_call(
-            ['/usr/sbin/lvm', 'lvchange', '--refresh', '--', '{}/{}'.format(vgname, lvname)])
+            ['sudo /usr/sbin/lvm', 'lvchange', '--refresh', '--', '{}/{}'.format(vgname, lvname)])
         if active:
             quiet_call(
-                ['/usr/sbin/lvm', 'lvchange', '-ay', '--', '{}/{}'.format(vgname, lvname)])
+                ['sudo /usr/sbin/lvm', 'lvchange', '-ay', '--', '{}/{}'.format(vgname, lvname)])
         print('ok')
 
 
@@ -1502,7 +1502,7 @@ def make_bcache_sb(bsb_size, data_size, join):
 
 def lv_to_bcache(device, debug, progress, join):
     pe_size = int(subprocess.check_output(
-        '/usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+        'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
         '-o vg_extent_size --'.split()
         + [device.devpath], universal_newlines=True))
 
@@ -1725,7 +1725,7 @@ def cmd_rotate(args):
     progress = CLIProgressHandler()
 
     pe_size = int(subprocess.check_output(
-        '/usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
+        'sudo /usr/sbin/lvm lvs --noheadings --rows --units=b --nosuffix '
         '-o vg_extent_size --'.split()
         + [device.devpath], universal_newlines=True))
 
@@ -1798,7 +1798,7 @@ def cmd_maintboot_impl(args):
     # wait for devices to come up (30s max)
     subprocess.check_call(['udevadm', 'settle', '--timeout=30'])
     # activate lvm volumes
-    subprocess.check_call(['/usr/sbin/lvm', 'vgchange', '-ay'])
+    subprocess.check_call(['sudo /usr/sbin/lvm', 'vgchange', '-ay'])
 
     kargs.device = BlockDevice.by_uuid(kargs.device).devpath
     kargs.maintboot = False
@@ -1819,7 +1819,7 @@ def cmd_to_lvm(args):
     print('After LVMReq 1')
     if args.join is not None:
         vg_info = subprocess.check_output(
-            '/usr/sbin/lvm vgs --noheadings --rows --units=b --nosuffix '
+            'sudo /usr/sbin/lvm vgs --noheadings --rows --units=b --nosuffix '
             '-o vg_name,vg_uuid,vg_extent_size --'.split()
             + [args.join], universal_newlines=True).splitlines()
         join_name, join_uuid, pe_size = (fi.lstrip() for fi in vg_info)
@@ -1978,11 +1978,11 @@ def cmd_to_lvm(args):
                    .format(synth_re=re.escape(synth_pv.devpath)))
 
         quiet_call(
-            ['/usr/sbin/lvm', 'pvcreate', lvm_cfg, '--restorefile', cfgf.name,
+            ['sudo /usr/sbin/lvm', 'pvcreate', lvm_cfg, '--restorefile', cfgf.name,
              '--uuid', str(pv_uuid), '--zero', 'y', '--',
              synth_pv.devpath])
         quiet_call(
-            ['/usr/sbin/lvm', 'vgcfgrestore', lvm_cfg, '--file', cfgf.name, '--', vgname])
+            ['sudo /usr/sbin/lvm', 'vgcfgrestore', lvm_cfg, '--file', cfgf.name, '--', vgname])
     print('ok')  # after 'Preparing LVM metadata'
 
     # Recovery: copy back the PE we had moved to the end of the device.
@@ -2003,7 +2003,7 @@ def cmd_to_lvm(args):
     print('LVM conversion successful!')
     if args.join is not None:
         quiet_call(
-            ['/usr/sbin/lvm', 'vgmerge', '--', join_name, vgname])
+            ['sudo /usr/sbin/lvm', 'vgmerge', '--', join_name, vgname])
         vgname = join_name
     if False:
         print('Enable the volume group with\n'
