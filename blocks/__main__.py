@@ -209,15 +209,15 @@ class BlockDevice:
     def superblock_at(self, offset):
         try:
             result = subprocess.check_output(
-                '/usr/sbin/blkid -p -o value -s TYPE -O'.split()
-                + ['%d' % offset, '--', self.devpath], shell=True
+                'sudo /usr/sbin/blkid -p -o value -s TYPE -O'.split()
+                + ['%d' % offset, '--', self.devpath]
             )
             print('Checking superblock here' +  result.decode('ascii') + 'updated log but got nothing')
             print('Next step 2 '+ result.rstrip().decode('ascii') + ' ...end')
 
             return subprocess.check_output(
-                '/usr/sbin/blkid -p -o value -s TYPE -O'.split()
-                + ['%d' % offset, '--', self.devpath], shell=True
+                'sudo /usr/sbin/blkid -p -o value -s TYPE -O'.split()
+                + ['%d' % offset, '--', self.devpath]
             ).rstrip().decode('ascii')
         except subprocess.CalledProcessError as err:
             # No recognised superblock
