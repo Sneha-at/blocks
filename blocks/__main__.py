@@ -202,11 +202,19 @@ class BlockDevice:
 
     @memoized_property
     def superblock_type(self):
-        return self.superblock_at(0)
+        result = self.superblock_at(0)
+        print('Got superblock' + result)
+        return result
 
     def superblock_at(self, offset):
         try:
-            print('Checking superblock here')
+            result = subprocess.check_output(
+                '/usr/sbin/blkid -p -o value -s TYPE -O'.split()
+                + ['%d' % offset, '--', self.devpath], shell=True
+            )
+            print('Checking superblock here' +  result.decode('ascii') + 'updated log but got nothing')
+            print('Next step 2 '+ result.rstrip().decode('ascii') + ' ...end')
+
             return subprocess.check_output(
                 '/usr/sbin/blkid -p -o value -s TYPE -O'.split()
                 + ['%d' % offset, '--', self.devpath], shell=True
@@ -230,7 +238,7 @@ class BlockDevice:
     @memoized_property
     def size(self):
         rv = int(subprocess.check_output(
-            'blockdev --getsize64'.split() + [self.devpath],shell=True))
+            'blockdev --getsize64'.split() + [self.devpath]))
         assert rv % 512 == 0
         return rv
 
@@ -1802,7 +1810,6 @@ def cmd_to_lvm(args):
     debug = args.debug
     progress = CLIProgressHandler()
     print('Reached cmd_to_lvm function')
-
     if device.superblock_type == 'LVM2_member':
         print(
             'Already a physical volume', file=sys.stderr)
