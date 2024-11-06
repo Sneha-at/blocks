@@ -195,7 +195,7 @@ class BlockDevice:
         # TODO: also detect an MBR other than protective,
         # and refuse to edit that.
         rv = subprocess.check_output(
-            'blkid -p -o value -s PTTYPE --'.split() + [self.devpath], shell=True
+            '/usr/sbin/blkid -p -o value -s PTTYPE --'.split() + [self.devpath], shell=True
         ).rstrip().decode('ascii')
         if rv:
             return rv
@@ -206,6 +206,7 @@ class BlockDevice:
 
     def superblock_at(self, offset):
         try:
+            print('Checking superblock here')
             return subprocess.check_output(
                 '/usr/sbin/blkid -p -o value -s TYPE -O'.split()
                 + ['%d' % offset, '--', self.devpath], shell=True
@@ -1800,6 +1801,7 @@ def cmd_to_lvm(args):
     device = BlockDevice(args.device)
     debug = args.debug
     progress = CLIProgressHandler()
+    print('Reached cmd_to_lvm function')
 
     if device.superblock_type == 'LVM2_member':
         print(
@@ -1807,7 +1809,7 @@ def cmd_to_lvm(args):
         return 1
 
     LVMReq.require(progress)
-
+    print('After LVMReq 1')
     if args.join is not None:
         vg_info = subprocess.check_output(
             '/usr/sbin/lvm vgs --noheadings --rows --units=b --nosuffix '
@@ -1823,6 +1825,7 @@ def cmd_to_lvm(args):
         vgname = args.vgname
         pe_size = LVM_PE_SIZE
     else:
+        print('Creating VG name')
         vgname = 'vg.' + os.path.basename(device.devpath)
         pe_size = LVM_PE_SIZE
 
